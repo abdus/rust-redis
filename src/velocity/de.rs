@@ -1,20 +1,15 @@
-#[derive(Debug)]
-pub enum Command {
-    Ping,
-    Get,
-    Unknown,
-}
+use super::command::Command;
 
 #[derive(Debug)]
 pub struct Query {
     pub value: String,
     pub command: Command,
+    pub args: Option<Vec<String>>,
 }
 
 impl Query {
     pub fn new(query: &str) -> Query {
-        let mut query = query.split_whitespace();
-
+        let mut query = query.split("\r\n");
         let data_type = query.next(); // *len
 
         match data_type {
@@ -23,6 +18,7 @@ impl Query {
                     return Query {
                         value: "query is not an array".to_string(),
                         command: Command::Unknown,
+                        args: None,
                     };
                 }
             }
@@ -31,19 +27,23 @@ impl Query {
                 return Query {
                     value: "query is not an array".to_string(),
                     command: Command::Unknown,
+                    args: None,
                 };
             }
         }
 
         // remove argument length from RESP2 query
         let _ = query.next().unwrap(); // $len
+        let command_str = query.next();
 
-        let command = match query.next().unwrap().to_lowercase().as_str() {
-            "get" => Command::Get,
-            "ping" => Command::Ping,
-            c => {
-                println!("Unknown command: {}", c);
-                Command::Unknown
+        let command = match command_str {
+            Some(command_str) => Command::from_str(command_str),
+            None => {
+                return Query {
+                    value: "query is not an array".to_string(),
+                    command: Command::Unknown,
+                    args: None,
+                };
             }
         };
 
@@ -55,11 +55,30 @@ impl Query {
             None => "",
         };
 
+        let mut args: Vec<String> = vec![];
+
+        for (_, arg) in query.enumerate() {
+            // we do not need length of the query
+            if arg.starts_with("$") {
+                continue;
+            }
+
+            args.push(arg.to_string());
+        }
+
         let query = Query {
             value: value.to_string(),
             command,
+            args: Some(args),
         };
 
+        println!("command: {:?}", query);
+
         query
+    }
+
+    pub fn create_response(&self) -> Vec<u8> {
+        let command = &self.command;
+        command.create_response(self)
     }
 }

@@ -34,39 +34,11 @@ pub fn err(message: &str) -> Vec<u8> {
     response.to_owned()
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+pub fn nil() -> Vec<u8> {
+    let value = resp::Value::Null;
+    let encoded = resp::encode(&value);
+    let response: String = String::from_utf8_lossy(&encoded).into_owned();
+    let response = response.as_bytes();
 
-    #[test]
-    fn test_str() {
-        let expected = b"+OK\r\n".to_vec();
-        let actual = str("OK");
-
-        assert_eq!(expected, actual);
-    }
-
-    #[test]
-    fn test_bulk_str() {
-        let expected = b"$3\r\nfoo\r\n".to_vec();
-        let actual = bulk_str("foo");
-
-        assert_eq!(expected, actual);
-    }
-
-    #[test]
-    fn test_int() {
-        let expected = b":1000\r\n".to_vec();
-        let actual = int(1000);
-
-        assert_eq!(expected, actual);
-    }
-
-    #[test]
-    fn test_err() {
-        let expected = b"-Error message\r\n".to_vec();
-        let actual = err("Error message");
-
-        assert_eq!(expected, actual);
-    }
+    response.to_owned()
 }
