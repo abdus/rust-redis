@@ -86,6 +86,10 @@ fn handle_keys(query: &Query) -> Vec<u8> {
     let keys = db.keys();
     let pattern = Pattern::new(&query.value).unwrap();
 
+    if query.value.is_empty() {
+        return ser::err("ERR wrong number of arguments for 'keys' command");
+    }
+
     if keys.len() == 0 {
         return ser::nil();
     }

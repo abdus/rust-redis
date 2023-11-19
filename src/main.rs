@@ -18,9 +18,7 @@ fn main() {
 
             match stream {
                 Ok(stream) => {
-                    spawn(move || {
-                        handle_commands(&stream);
-                    });
+                    handle_commands(&stream);
                 }
 
                 Err(e) => {
@@ -32,7 +30,7 @@ fn main() {
 }
 
 fn handle_commands(mut stream: &TcpStream) {
-    let mut buffer = [0; 1024 * 10]; // 10KB buffer
+    let mut buffer = [0; 1024 * 100]; // 100KB buffer
 
     loop {
         match stream.read(&mut buffer) {

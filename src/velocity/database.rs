@@ -1,5 +1,5 @@
 use once_cell::sync::Lazy;
-use std::{collections::HashMap, error::Error, sync::Mutex, vec};
+use std::{collections::HashMap, sync::Mutex, vec};
 
 /*
  * redis primarily have these five data-types:
