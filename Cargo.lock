@@ -282,6 +282,7 @@ name = "redis-server"
 version = "0.1.0"
 dependencies = [
  "config",
+ "once_cell",
  "resp",
 ]
 

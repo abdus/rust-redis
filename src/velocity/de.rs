@@ -4,7 +4,7 @@ use super::command::Command;
 pub struct Query {
     pub value: String,
     pub command: Command,
-    pub args: Option<Vec<String>>,
+    pub args: Vec<String>,
 }
 
 impl Query {
@@ -18,7 +18,7 @@ impl Query {
                     return Query {
                         value: "query is not an array".to_string(),
                         command: Command::Unknown,
-                        args: None,
+                        args: vec![],
                     };
                 }
             }
@@ -27,7 +27,7 @@ impl Query {
                 return Query {
                     value: "query is not an array".to_string(),
                     command: Command::Unknown,
-                    args: None,
+                    args: vec![],
                 };
             }
         }
@@ -42,7 +42,7 @@ impl Query {
                 return Query {
                     value: "query is not an array".to_string(),
                     command: Command::Unknown,
-                    args: None,
+                    args: vec![],
                 };
             }
         };
@@ -59,7 +59,7 @@ impl Query {
 
         for (_, arg) in query.enumerate() {
             // we do not need length of the query
-            if arg.starts_with("$") {
+            if arg.starts_with("$") || arg.is_empty() {
                 continue;
             }
 
@@ -69,7 +69,7 @@ impl Query {
         let query = Query {
             value: value.to_string(),
             command,
-            args: Some(args),
+            args,
         };
 
         println!("command: {:?}", query);

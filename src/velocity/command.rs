@@ -1,5 +1,5 @@
 use super::{
-    database::{DataTypes, Database},
+    database::{DataTypes, DatabaseOps},
     de::Query,
     ser,
 };
@@ -8,9 +8,11 @@ use super::{
 pub enum Command {
     Ping,
     Get,
-    Unknown,
     Echo,
     Set,
+    Keys,
+    Delete,
+    Unknown,
 }
 
 impl Command {
@@ -20,6 +22,8 @@ impl Command {
             "get" => Command::Get,
             "echo" => Command::Echo,
             "set" => Command::Set,
+            "keys" => Command::Keys,
+            "del" => Command::Delete,
             c => {
                 println!("Unknown command: {}", c);
                 Command::Unknown
@@ -33,6 +37,8 @@ impl Command {
             Command::Get => handle_get(query),
             Command::Echo => handle_echo(query),
             Command::Set => handle_set(query),
+            Command::Keys => handle_keys(query),
+            Command::Delete => handle_delete(query),
             Command::Unknown => ser::str("Unknown command"),
         }
     }
@@ -47,16 +53,10 @@ fn handle_echo(query: &Query) -> Vec<u8> {
 }
 
 fn handle_set(query: &Query) -> Vec<u8> {
-    let mut db = Database::get_instance();
+    let mut db = DatabaseOps;
     let key = query.value.to_string();
 
-    let data = match &query.args {
-        Some(data) => data,
-        None => {
-            let response = ser::err("ERR wrong number of arguments for 'SET' command");
-            return response;
-        }
-    };
+    let data = &query.args;
 
     let default_value = "".to_string();
     let data = data.first().unwrap_or(&default_value);
@@ -67,7 +67,7 @@ fn handle_set(query: &Query) -> Vec<u8> {
 }
 
 fn handle_get(query: &Query) -> Vec<u8> {
-    let db = Database::get_instance();
+    let db = DatabaseOps;
     let key = query.value.to_string();
 
     let data = db.get(key);
@@ -80,4 +80,26 @@ fn handle_get(query: &Query) -> Vec<u8> {
     };
 
     response
+}
+
+fn handle_keys(_query: &Query) -> Vec<u8> {
+    let db = DatabaseOps;
+    let keys = db.keys();
+
+    if keys.len() == 0 {
+        return ser::nil();
+    }
+
+    ser::str_arr(&keys)
+}
+
+fn handle_delete(query: &Query) -> Vec<u8> {
+    let db = DatabaseOps;
+    let key = &query.value;
+    let result = db.del(key.to_string());
+
+    match result {
+        Some(_) => ser::int(1),
+        None => ser::int(0),
+    }
 }
