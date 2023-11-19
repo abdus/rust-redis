@@ -1,4 +1,6 @@
 pub mod command;
 pub mod database;
-pub mod de;
-pub mod ser;
+pub mod query;
+pub mod serializer;
+
+pub mod serializer_spec;

@@ -2,8 +2,8 @@ use glob::Pattern;
 
 use super::{
     database::{DataTypes, DatabaseOps},
-    de::Query,
-    ser,
+    query::Query,
+    serializer,
 };
 
 #[derive(Debug)]
@@ -32,13 +32,13 @@ impl Command {
 
     pub fn create_response(&self, query: &Query) -> Vec<u8> {
         match self {
-            Command::Ping => ser::str("PONG"),
+            Command::Ping => serializer::str("PONG"),
             Command::Get => handle_get(query),
             Command::Echo => handle_echo(query),
             Command::Set => handle_set(query),
             Command::Keys => handle_keys(query),
             Command::Delete => handle_delete(query),
-            Command::Unknown => ser::err(" Err Unknown command"),
+            Command::Unknown => serializer::err(" Err Unknown command"),
         }
     }
 }
@@ -46,7 +46,7 @@ impl Command {
 fn handle_echo(query: &Query) -> Vec<u8> {
     let value = &query.value;
     let value = &value[..];
-    let response = ser::bulk_str(&value);
+    let response = serializer::bulk_str(&value);
 
     response
 }
@@ -60,9 +60,20 @@ fn handle_set(query: &Query) -> Vec<u8> {
     let default_value = "".to_string();
     let data = data.first().unwrap_or(&default_value);
 
+    // in `args` property, anything after the first element are the modifiers
+    // for the command. For example:
+    //          SET key value EX 10
+    //              SET: the command
+    //              key: identifier
+    //              value: the value to be stored
+    //              EX: modifier
+    //              10: the value of the modifier
+
     db.set(key, DataTypes::String(data.to_string()));
 
-    ser::str("OK")
+    dbg!(&query);
+
+    serializer::str("OK")
 }
 
 fn handle_get(query: &Query) -> Vec<u8> {
@@ -73,9 +84,9 @@ fn handle_get(query: &Query) -> Vec<u8> {
 
     let response = match data {
         Some(data) => match data {
-            DataTypes::String(data) => ser::bulk_str(&data),
+            DataTypes::String(data) => serializer::bulk_str(&data),
         },
-        None => ser::nil(),
+        None => serializer::nil(),
     };
 
     response
@@ -87,15 +98,15 @@ fn handle_keys(query: &Query) -> Vec<u8> {
     let pattern = Pattern::new(&query.value).unwrap();
 
     if query.value.is_empty() {
-        return ser::err("ERR wrong number of arguments for 'keys' command");
+        return serializer::err("ERR wrong number of arguments for 'keys' command");
     }
 
     if keys.len() == 0 {
-        return ser::nil();
+        return serializer::nil();
     }
 
     if query.value.is_empty() {
-        return ser::str_arr(&keys);
+        return serializer::str_arr(&keys);
     }
 
     let keys: Vec<String> = keys
@@ -104,7 +115,7 @@ fn handle_keys(query: &Query) -> Vec<u8> {
         .map(|key| key.to_string())
         .collect();
 
-    ser::str_arr(&keys)
+    serializer::str_arr(&keys)
 }
 
 fn handle_delete(query: &Query) -> Vec<u8> {
@@ -113,7 +124,7 @@ fn handle_delete(query: &Query) -> Vec<u8> {
     let result = db.del(key.to_string());
 
     match result {
-        Some(_) => ser::int(1),
-        None => ser::int(0),
+        Some(_) => serializer::int(1),
+        None => serializer::int(0),
     }
 }

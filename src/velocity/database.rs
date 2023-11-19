@@ -23,6 +23,10 @@ impl Clone for DataTypes {
     }
 }
 
+/* ------------------------------------------------------------------- */
+/* ------------------------ DATABASE --------------------------------- */
+/* ------------------------------------------------------------------- */
+
 #[derive(Debug)]
 struct Database {
     data: HashMap<String, DataTypes>,
@@ -45,7 +49,6 @@ impl DatabaseOps {
         let mut db = unsafe { DB.lock().unwrap() };
 
         db.data.insert(key, value);
-        println!("Database: {:#?}", db.data);
     }
 
     pub fn get(&self, key: String) -> Option<DataTypes> {

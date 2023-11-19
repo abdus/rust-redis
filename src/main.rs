@@ -3,7 +3,7 @@ mod velocity;
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
 use std::thread::spawn;
-use velocity::de;
+use velocity::query;
 
 static IP: &str = "0.0.0.0:6379";
 
@@ -13,17 +13,13 @@ fn main() {
     println!("Server listening on {}", IP);
 
     for stream in listener.incoming() {
-        spawn(move || {
-            println!("New client!");
+        spawn(move || match stream {
+            Ok(stream) => {
+                handle_commands(&stream);
+            }
 
-            match stream {
-                Ok(stream) => {
-                    handle_commands(&stream);
-                }
-
-                Err(e) => {
-                    println!("Error: {}", e);
-                }
+            Err(e) => {
+                println!("Error: {}", e);
             }
         });
     }
@@ -37,7 +33,7 @@ fn handle_commands(mut stream: &TcpStream) {
             Ok(size) if size > 0 => {
                 let data = &buffer[..size];
                 let response = String::from_utf8_lossy(data);
-                let query = de::Query::new(&response);
+                let query = query::Query::new(&response);
                 let response = query.create_response();
 
                 stream

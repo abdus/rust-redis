@@ -72,8 +72,6 @@ impl Query {
             args,
         };
 
-        println!("command: {:?}", query);
-
         query
     }
 
