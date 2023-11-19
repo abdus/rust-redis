@@ -1,3 +1,5 @@
+use glob::Pattern;
+
 use super::{
     database::{DataTypes, DatabaseOps},
     de::Query,
@@ -24,10 +26,7 @@ impl Command {
             "set" => Command::Set,
             "keys" => Command::Keys,
             "del" => Command::Delete,
-            c => {
-                println!("Unknown command: {}", c);
-                Command::Unknown
-            }
+            _ => Command::Unknown,
         }
     }
 
@@ -39,7 +38,7 @@ impl Command {
             Command::Set => handle_set(query),
             Command::Keys => handle_keys(query),
             Command::Delete => handle_delete(query),
-            Command::Unknown => ser::str("Unknown command"),
+            Command::Unknown => ser::err(" Err Unknown command"),
         }
     }
 }
@@ -82,13 +81,24 @@ fn handle_get(query: &Query) -> Vec<u8> {
     response
 }
 
-fn handle_keys(_query: &Query) -> Vec<u8> {
+fn handle_keys(query: &Query) -> Vec<u8> {
     let db = DatabaseOps;
     let keys = db.keys();
+    let pattern = Pattern::new(&query.value).unwrap();
 
     if keys.len() == 0 {
         return ser::nil();
     }
+
+    if query.value.is_empty() {
+        return ser::str_arr(&keys);
+    }
+
+    let keys: Vec<String> = keys
+        .iter()
+        .filter(|key| pattern.matches(key))
+        .map(|key| key.to_string())
+        .collect();
 
     ser::str_arr(&keys)
 }
