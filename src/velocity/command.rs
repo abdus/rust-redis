@@ -41,6 +41,8 @@ pub enum Command {
     Keys,
     Delete,
     Exists,
+    Incr,
+    Decr,
     Unknown,
 }
 
@@ -54,6 +56,8 @@ impl Command {
             "keys" => Command::Keys,
             "del" => Command::Delete,
             "exists" => Command::Exists,
+            "incr" => Command::Incr,
+            "decr" => Command::Decr,
             _ => Command::Unknown,
         }
     }
@@ -67,6 +71,8 @@ impl Command {
             Command::Keys => handle_keys(query),
             Command::Delete => handle_delete(query),
             Command::Exists => handle_exists(query),
+            Command::Incr => handle_incr_decr(query, IncrDecrOpts::Incr),
+            Command::Decr => handle_incr_decr(query, IncrDecrOpts::Decr),
             Command::Unknown => serializer::err("Err Unknown command"),
         }
     }
@@ -351,7 +357,7 @@ fn handle_delete(query: &Query) -> Vec<u8> {
 fn handle_exists(query: &Query) -> Vec<u8> {
     let db = DatabaseOps;
     let mut count = 0;
-    let first_key = &query.command_str;
+    let first_key = &query.command_str; // fist key is the command itself
     let mut other_keys = query.args.as_slice().to_vec();
 
     other_keys.push(first_key.to_string());
@@ -365,4 +371,53 @@ fn handle_exists(query: &Query) -> Vec<u8> {
     }
 
     serializer::int(count)
+}
+
+#[derive(Debug)]
+enum IncrDecrOpts {
+    Incr,
+    Decr,
+}
+
+fn handle_incr_decr(query: &Query, ops: IncrDecrOpts) -> Vec<u8> {
+    let mut db = DatabaseOps;
+    let key = &query.command_str;
+    let data = db.get(key.to_string());
+
+    println!("data is {:?}", ops);
+
+    match data {
+        Some(data) => match data {
+            DataTypes::String(data) => {
+                let data = data.parse::<i64>();
+
+                if data.is_err() {
+                    return serializer::err("ERR value is not an integer or out of range");
+                }
+
+                let data = data.unwrap();
+
+                let result = match ops {
+                    IncrDecrOpts::Incr => data + 1,
+                    IncrDecrOpts::Decr => data - 1,
+                };
+
+                db.set(key.to_string(), DataTypes::String(result.to_string()));
+                return serializer::int(result);
+            }
+        },
+        None => {
+            let data_to_store = match ops {
+                IncrDecrOpts::Incr => 1,
+                IncrDecrOpts::Decr => -1,
+            };
+
+            db.set(
+                key.to_string(),
+                DataTypes::String(data_to_store.to_string()),
+            );
+
+            return serializer::int(data_to_store);
+        }
+    };
 }
