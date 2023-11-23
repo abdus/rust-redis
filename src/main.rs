@@ -1,14 +1,16 @@
 mod velocity;
 
+use crate::velocity::database::DatabaseOps;
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
 use std::thread::spawn;
+use std::vec;
 use velocity::query;
 
 static IP: &str = "0.0.0.0:6379";
 
 fn main() {
-    let listener = TcpListener::bind(IP).unwrap();
+    let listener = TcpListener::bind(IP).expect("Failed to bind to port");
 
     println!("Server listening on {}", IP);
 
@@ -23,10 +25,12 @@ fn main() {
             }
         });
     }
+
+    println!("Server shutting down");
 }
 
 fn handle_commands(mut stream: &TcpStream) {
-    let mut buffer = [0; 1024 * 100]; // 100KB buffer
+    let mut buffer = vec![0; 1024 * 100]; // 100kb buffer
 
     loop {
         match stream.read(&mut buffer) {

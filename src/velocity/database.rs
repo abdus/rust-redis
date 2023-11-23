@@ -1,5 +1,6 @@
+use chrono::TimeZone;
 use once_cell::sync::Lazy;
-use std::{collections::HashMap, sync::Mutex, vec};
+use std::{collections::HashMap, sync::Mutex, thread, time, vec};
 
 /*
  * redis primarily have these five data-types:
@@ -22,6 +23,23 @@ impl Clone for DataTypes {
         }
     }
 }
+
+/* ------------------------------------------------------------------- */
+/* ---------------- Key Expiry Information --------------------------- */
+/* ------------------------------------------------------------------- */
+#[derive(Debug)]
+#[allow(dead_code)]
+struct KeyExpiryInfo {
+    data: HashMap<String, i64>,
+}
+
+// expiry
+#[allow(dead_code)]
+static mut EXPIRY_INFO: Lazy<Mutex<KeyExpiryInfo>> = Lazy::new(|| {
+    Mutex::new(KeyExpiryInfo {
+        data: HashMap::new(),
+    })
+});
 
 /* ------------------------------------------------------------------- */
 /* ------------------------ DATABASE --------------------------------- */
@@ -84,5 +102,44 @@ impl DatabaseOps {
         let removed_key = db.data.remove(key);
 
         removed_key
+    }
+
+    pub fn expire(&mut self, key: String, at_unix_time: i64) {
+        thread::spawn(move || {
+            let mut db = unsafe { DB.lock().unwrap() };
+            let mut expiry_info_db = unsafe { EXPIRY_INFO.lock().unwrap() };
+
+            if at_unix_time == -1 {
+                db.data.remove(&key);
+                expiry_info_db.data.remove(&key);
+                return;
+            }
+
+            expiry_info_db.data.insert(key, at_unix_time);
+        });
+    }
+
+    pub fn delete_expired_keys(&mut self) {
+        thread::spawn(move || {
+            let mut expiry_info_db = unsafe { EXPIRY_INFO.lock().unwrap() };
+            let mut db = unsafe { DB.lock().unwrap() };
+            let unix_now = chrono::Utc::now().timestamp();
+            let mut keys_to_delete: Vec<String> = vec![];
+
+            for (key, value) in expiry_info_db.data.iter() {
+                if *value < unix_now {
+                    keys_to_delete.push(key.to_string());
+                    println!("Deleting key: {}", key);
+                }
+            }
+
+            for key in keys_to_delete {
+                db.data.remove(&key);
+                expiry_info_db.data.remove(&key);
+            }
+
+            let thirty_seconds = time::Duration::from_secs(3);
+            thread::sleep(thirty_seconds);
+        });
     }
 }

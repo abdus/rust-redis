@@ -2,8 +2,8 @@ use super::command::Command;
 
 #[derive(Debug)]
 pub struct Query {
-    pub value: String,
-    pub command: Command,
+    pub command_str: String,
+    pub command_enum: Command,
     pub args: Vec<String>,
 }
 
@@ -16,8 +16,8 @@ impl Query {
             Some(data) => {
                 if !data.starts_with("*") {
                     return Query {
-                        value: "query is not an array".to_string(),
-                        command: Command::Unknown,
+                        command_str: "query is not an array".to_string(),
+                        command_enum: Command::Unknown,
                         args: vec![],
                     };
                 }
@@ -25,8 +25,8 @@ impl Query {
 
             None => {
                 return Query {
-                    value: "query is not an array".to_string(),
-                    command: Command::Unknown,
+                    command_str: "query is not an array".to_string(),
+                    command_enum: Command::Unknown,
                     args: vec![],
                 };
             }
@@ -40,8 +40,8 @@ impl Query {
             Some(command_str) => Command::from_str(command_str),
             None => {
                 return Query {
-                    value: "query is not an array".to_string(),
-                    command: Command::Unknown,
+                    command_str: "query is not an array".to_string(),
+                    command_enum: Command::Unknown,
                     args: vec![],
                 };
             }
@@ -55,6 +55,7 @@ impl Query {
             None => "",
         };
 
+        // the command arguments are the rest of the query
         let mut args: Vec<String> = vec![];
 
         for (_, arg) in query.enumerate() {
@@ -67,8 +68,8 @@ impl Query {
         }
 
         let query = Query {
-            value: value.to_string(),
-            command,
+            command_str: value.to_string(),
+            command_enum: command,
             args,
         };
 
@@ -76,7 +77,7 @@ impl Query {
     }
 
     pub fn create_response(&self) -> Vec<u8> {
-        let command = &self.command;
+        let command = &self.command_enum;
         command.create_response(self)
     }
 }

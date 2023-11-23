@@ -7,6 +7,32 @@ use super::{
 };
 
 #[derive(Debug)]
+pub struct SetCommandOpts {
+    ex: Option<i64>,   // expiry time in second
+    px: Option<i64>,   // expiry time in millisecond
+    nx: Option<bool>,  // only set the key if it does not already exist
+    xx: Option<bool>,  // only set the key if it already exist
+    exat: Option<i64>, // expiry unix time in second
+    pxat: Option<i64>, // expiry unix time in millisecond
+}
+
+impl SetCommandOpts {
+    pub fn new() -> SetCommandOpts {
+        SetCommandOpts {
+            ex: None,
+            px: None,
+            nx: None,
+            xx: None,
+            exat: None,
+            pxat: None,
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct SetCommandParseErr(String);
+
+#[derive(Debug)]
 pub enum Command {
     Ping,
     Get,
@@ -14,6 +40,7 @@ pub enum Command {
     Set,
     Keys,
     Delete,
+    Exists,
     Unknown,
 }
 
@@ -26,6 +53,7 @@ impl Command {
             "set" => Command::Set,
             "keys" => Command::Keys,
             "del" => Command::Delete,
+            "exists" => Command::Exists,
             _ => Command::Unknown,
         }
     }
@@ -38,22 +66,162 @@ impl Command {
             Command::Set => handle_set(query),
             Command::Keys => handle_keys(query),
             Command::Delete => handle_delete(query),
-            Command::Unknown => serializer::err(" Err Unknown command"),
+            Command::Exists => handle_exists(query),
+            Command::Unknown => serializer::err("Err Unknown command"),
         }
     }
 }
 
 fn handle_echo(query: &Query) -> Vec<u8> {
-    let value = &query.value;
+    let value = &query.command_str;
     let value = &value[..];
     let response = serializer::bulk_str(&value);
 
     response
 }
 
+fn parse_set_args(args: &Vec<String>) -> Result<SetCommandOpts, SetCommandParseErr> {
+    let mut args = args.iter();
+    let mut set_command = SetCommandOpts::new();
+
+    //if current_arg.is_none() {
+    //return Ok(SetCommandOpts::new());
+    //}
+
+    while let Some(current_arg) = args.next() {
+        let current_arg = current_arg.to_uppercase();
+        let current_arg = current_arg.as_str();
+
+        println!("current_arg is {}", current_arg);
+
+        match current_arg {
+            "EX" => {
+                if set_command.px.is_some()
+                    || set_command.pxat.is_some()
+                    || set_command.exat.is_some()
+                {
+                    let msg = "EX cannot be paired with other expiry commands".to_string();
+                    return Err(SetCommandParseErr(msg));
+                }
+
+                let value = args.next();
+
+                if value.is_none() {
+                    let msg = "No value passed for EX".to_string();
+                    return Err(SetCommandParseErr(msg));
+                }
+
+                let value = value.unwrap().parse::<i64>();
+
+                if value.is_err() {
+                    let msg = "Invalid value for EX".to_string();
+                    return Err(SetCommandParseErr(msg));
+                }
+
+                set_command.ex = Some(value.unwrap());
+            }
+
+            "PX" => {
+                if set_command.px.is_some()
+                    || set_command.pxat.is_some()
+                    || set_command.exat.is_some()
+                {
+                    let msg = "PX cannot be paired with other expiry commands".to_string();
+                    return Err(SetCommandParseErr(msg));
+                }
+
+                let value = args.next();
+
+                if value.is_none() {
+                    let msg = "No value passed for PX".to_string();
+                    return Err(SetCommandParseErr(msg));
+                }
+
+                let value = value.unwrap().parse::<i64>();
+
+                if value.is_err() {
+                    let msg = "Invalid value for PX".to_string();
+                    return Err(SetCommandParseErr(msg));
+                }
+
+                set_command.px = Some(value.unwrap());
+            }
+
+            "NX" => {
+                if set_command.xx.is_some() {
+                    let msg = "NX cannot be paired with XX".to_string();
+                    return Err(SetCommandParseErr(msg));
+                }
+
+                set_command.nx = Some(true);
+            }
+
+            "XX" => {
+                if set_command.nx.is_some() {
+                    let msg = "XX cannot be paired with NX".to_string();
+                    return Err(SetCommandParseErr(msg));
+                }
+
+                set_command.xx = Some(true);
+            }
+
+            "EXAT" => {
+                if set_command.px.is_some()
+                    || set_command.pxat.is_some()
+                    || set_command.ex.is_some()
+                {
+                    let msg = "EXAT cannot be paired with other expiry commands".to_string();
+                    return Err(SetCommandParseErr(msg));
+                }
+
+                let value = args.next();
+
+                if value.is_none() {
+                    let msg = "No value passed for EXAT".to_string();
+                    return Err(SetCommandParseErr(msg));
+                }
+
+                let value = value.unwrap().parse::<i64>();
+
+                if value.is_err() {
+                    let msg = "Invalid value for EXAT".to_string();
+                    return Err(SetCommandParseErr(msg));
+                }
+
+                set_command.exat = Some(value.unwrap());
+            }
+
+            "PXAT" => {
+                let value = args.next();
+
+                if value.is_none() {
+                    let msg = "No value passed for PXAT".to_string();
+                    return Err(SetCommandParseErr(msg));
+                }
+
+                let value = value.unwrap().parse::<i64>();
+
+                if value.is_err() {
+                    let msg = "Invalid value for PXAT".to_string();
+                    return Err(SetCommandParseErr(msg));
+                }
+
+                set_command.pxat = Some(value.unwrap());
+            }
+
+            _ => {
+                let msg = format!("Invalid modifier: {}", current_arg);
+                return Err(SetCommandParseErr(msg));
+            }
+        }
+    }
+
+    return Ok(set_command);
+}
+
 fn handle_set(query: &Query) -> Vec<u8> {
     let mut db = DatabaseOps;
-    let key = query.value.to_string();
+    let key = query.command_str.to_string();
 
     let data = &query.args;
 
@@ -69,16 +237,67 @@ fn handle_set(query: &Query) -> Vec<u8> {
     //              EX: modifier
     //              10: the value of the modifier
 
-    db.set(key, DataTypes::String(data.to_string()));
+    let args = query
+        .args
+        .iter()
+        .map(|arg| arg.to_string())
+        .skip(1) // first element is the value to be stored. so remove it
+        .collect::<Vec<String>>();
 
-    dbg!(&query);
+    let parsed = parse_set_args(&args);
 
-    serializer::str("OK")
+    match parsed {
+        Ok(parsed) => {
+            if parsed.ex.is_some() {
+                let ex = parsed.ex.unwrap();
+                let unix_time = chrono::Utc::now().timestamp() + ex;
+                db.expire(key.clone(), unix_time + ex);
+            } else if parsed.px.is_some() {
+                let px = parsed.px.unwrap();
+                let unix_time = chrono::Utc::now().timestamp_millis() + (px as i64 / 1000);
+                db.expire(key.clone(), unix_time);
+            } else if parsed.exat.is_some() {
+                let exat = parsed.exat.unwrap();
+                db.expire(key.clone(), exat);
+            } else if parsed.pxat.is_some() {
+                let pxat = parsed.pxat.unwrap();
+                db.expire(key.clone(), pxat / 1000);
+            }
+
+            if parsed.nx.is_some() {
+                let existing_data = db.get(key.clone());
+
+                if existing_data.is_none() {
+                    db.set(key.clone(), DataTypes::String(data.to_string()));
+                    return serializer::str("OK");
+                } else {
+                    return serializer::nil();
+                }
+            } else if parsed.xx.is_some() {
+                let existing_data = db.get(key.clone());
+
+                if existing_data.is_some() {
+                    db.set(key.clone(), DataTypes::String(data.to_string()));
+                    return serializer::str("OK");
+                } else {
+                    return serializer::nil();
+                }
+            } else {
+                db.set(key.clone(), DataTypes::String(data.to_string()));
+                serializer::str("OK")
+            }
+        }
+
+        Err(msg) => {
+            let err_msg = format!("ERR syntax error. {}", msg.0);
+            return serializer::err(&err_msg);
+        }
+    }
 }
 
 fn handle_get(query: &Query) -> Vec<u8> {
     let db = DatabaseOps;
-    let key = query.value.to_string();
+    let key = query.command_str.to_string();
 
     let data = db.get(key);
 
@@ -95,9 +314,9 @@ fn handle_get(query: &Query) -> Vec<u8> {
 fn handle_keys(query: &Query) -> Vec<u8> {
     let db = DatabaseOps;
     let keys = db.keys();
-    let pattern = Pattern::new(&query.value).unwrap();
+    let pattern = Pattern::new(&query.command_str).unwrap();
 
-    if query.value.is_empty() {
+    if query.command_str.is_empty() {
         return serializer::err("ERR wrong number of arguments for 'keys' command");
     }
 
@@ -105,7 +324,7 @@ fn handle_keys(query: &Query) -> Vec<u8> {
         return serializer::nil();
     }
 
-    if query.value.is_empty() {
+    if query.command_str.is_empty() {
         return serializer::str_arr(&keys);
     }
 
@@ -120,11 +339,30 @@ fn handle_keys(query: &Query) -> Vec<u8> {
 
 fn handle_delete(query: &Query) -> Vec<u8> {
     let db = DatabaseOps;
-    let key = &query.value;
+    let key = &query.command_str;
     let result = db.del(key.to_string());
 
     match result {
         Some(_) => serializer::int(1),
         None => serializer::int(0),
     }
+}
+
+fn handle_exists(query: &Query) -> Vec<u8> {
+    let db = DatabaseOps;
+    let mut count = 0;
+    let first_key = &query.command_str;
+    let mut other_keys = query.args.as_slice().to_vec();
+
+    other_keys.push(first_key.to_string());
+
+    for key in other_keys {
+        let result = db.get(key);
+
+        if result.is_some() {
+            count += 1;
+        }
+    }
+
+    serializer::int(count)
 }
