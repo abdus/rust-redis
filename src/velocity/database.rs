@@ -1,4 +1,3 @@
-use chrono::TimeZone;
 use once_cell::sync::Lazy;
 use std::{collections::HashMap, sync::Mutex, thread, time, vec};
 
@@ -34,7 +33,6 @@ struct KeyExpiryInfo {
 }
 
 // expiry
-#[allow(dead_code)]
 static mut EXPIRY_INFO: Lazy<Mutex<KeyExpiryInfo>> = Lazy::new(|| {
     Mutex::new(KeyExpiryInfo {
         data: HashMap::new(),
@@ -119,26 +117,37 @@ impl DatabaseOps {
         });
     }
 
-    pub fn delete_expired_keys(&mut self) {
-        thread::spawn(move || {
-            let mut expiry_info_db = unsafe { EXPIRY_INFO.lock().unwrap() };
-            let mut db = unsafe { DB.lock().unwrap() };
+    /*
+     * if I directly use this code inside the `loop` of `delete_expired_keys`
+     * method, the lock acquired on the database will never expire, making the
+     * whole server freeze
+     *
+     * by extracting the code in a different function, we ensure that the
+     * values are moved as soon as the function returns
+     */
+    fn expire_keys_helper() {
+        let mut db = unsafe { DB.lock().unwrap() };
+        let mut expiry_info_db = unsafe { EXPIRY_INFO.lock().unwrap() };
+        let mut keys_to_delete: Vec<String> = vec![];
+
+        for (key, value) in expiry_info_db.data.iter() {
             let unix_now = chrono::Utc::now().timestamp();
-            let mut keys_to_delete: Vec<String> = vec![];
-
-            for (key, value) in expiry_info_db.data.iter() {
-                if *value < unix_now {
-                    keys_to_delete.push(key.to_string());
-                    println!("Deleting key: {}", key);
-                }
+            if *value < unix_now {
+                keys_to_delete.push(key.to_string());
             }
+        }
 
-            for key in keys_to_delete {
-                db.data.remove(&key);
-                expiry_info_db.data.remove(&key);
-            }
+        for key in keys_to_delete {
+            db.data.remove(&key);
+            expiry_info_db.data.remove(&key);
+        }
+    }
 
-            let thirty_seconds = time::Duration::from_secs(3);
+    pub fn delete_expired_keys(&mut self) {
+        thread::spawn(move || loop {
+            DatabaseOps::expire_keys_helper();
+
+            let thirty_seconds = time::Duration::from_secs(30);
             thread::sleep(thirty_seconds);
         });
     }

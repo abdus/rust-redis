@@ -10,7 +10,17 @@ use velocity::query;
 static IP: &str = "0.0.0.0:6379";
 
 fn main() {
-    let listener = TcpListener::bind(IP).expect("Failed to bind to port");
+    let mut db = DatabaseOps;
+    let listener = TcpListener::bind(IP);
+    let listener = match listener {
+        Ok(listener) => listener,
+        Err(e) => {
+            println!("Failed to bind to {}: {}", IP, e.kind());
+            return;
+        }
+    };
+
+    db.delete_expired_keys();
 
     println!("Server listening on {}", IP);
 

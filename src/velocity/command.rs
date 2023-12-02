@@ -98,8 +98,6 @@ fn parse_set_args(args: &Vec<String>) -> Result<SetCommandOpts, SetCommandParseE
         let current_arg = current_arg.to_uppercase();
         let current_arg = current_arg.as_str();
 
-        println!("current_arg is {}", current_arg);
-
         match current_arg {
             "EX" => {
                 if set_command.px.is_some()
