@@ -49,3 +49,5 @@ $ redis-cli -p 6379
 127.0.0.1:6379>PING
 Hello from the Other Side
 ```
+
+https://cdn.abdus.net/redis-server-demo.mp4
