@@ -49,3 +49,5 @@ $ redis-cli -p 6379
 127.0.0.1:6379>PING
 Hello from the Other Side
 ```
+
+https://github.com/abdus/rust-redis/assets/32123917/f8499757-1051-4636-95c5-13033d2df458
