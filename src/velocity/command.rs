@@ -64,7 +64,7 @@ impl Command {
 
     pub fn create_response(&self, query: &Query) -> Vec<u8> {
         match self {
-            Command::Ping => serializer::str("PONG"),
+            Command::Ping => serializer::str("PONG "),
             Command::Get => handle_get(query),
             Command::Echo => handle_echo(query),
             Command::Set => handle_set(query),

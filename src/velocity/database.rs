@@ -147,8 +147,8 @@ impl DatabaseOps {
         thread::spawn(move || loop {
             DatabaseOps::expire_keys_helper();
 
-            let thirty_seconds = time::Duration::from_secs(30);
-            thread::sleep(thirty_seconds);
+            let seconds = time::Duration::from_secs(1);
+            thread::sleep(seconds);
         });
     }
 }

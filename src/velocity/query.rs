@@ -9,6 +9,20 @@ pub struct Query {
 
 impl Query {
     pub fn new(query: &str) -> Query {
+        /*
+         * Query Example
+         * -------------
+         * *4
+         * $3
+         * SET
+         * $1
+         * k
+         * $1
+         * v
+         * $2
+         * NX
+         */
+
         let mut query = query.split("\r\n");
         let data_type = query.next(); // *len
 
